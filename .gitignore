@@ -1,12 +1,11 @@
 # gradle
 .gradle/
-build/*
-!build/libs/
 
-# Specyficzne ustawienia dla folderu z plikami .jar
-build/libs/*
-!build/libs/*.jar
-build/libs/*-sources.jar
+# Ignorujemy cały folder build i wszystko w środku
+build/
+
+# Ale pozwól na pliki .jar w GŁÓWNYM folderze (root)
+!/*.jar
 
 # eclipse
 *.launch
