@@ -20,7 +20,7 @@ Aby w pełni chronić swój serwer, odrzucać nieautoryzowane wejścia i skutecz
 Projekt wtyczki serwerowej jest aktywnie rozwijany, a sprzedaż i dystrybucja odbywają się prywatnie. 
 Chcesz zabezpieczyć swój serwer, dołączyć do grona testerów lub zakupić licencję? 
 
-💬 **Skontaktuj się z autorem na Discordzie:** `SystemEdycji`
+💬 **Skontaktuj się z autorem na Discordzie:** `PolskieLobby` link do discorda: https://discord.gg/cqwX4xscNf
 
 ---
-*Stworzone przez SystemEdycji | Kompatybilne z Fabric 1.21.11*
+*Stworzone przez Korex_x | Kompatybilne z Fabric 1.21.11*
