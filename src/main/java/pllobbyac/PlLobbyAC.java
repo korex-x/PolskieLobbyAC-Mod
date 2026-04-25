@@ -25,27 +25,54 @@ public class PlLobbyAC implements ClientModInitializer {
 	public static final Identifier CHALLENGE_CHANNEL = Identifier.of("polskielobby", "challenge");
 	private static final String SECRET = "MOUNT_OF_MAYHEM_SECRET_2026";
 
+	// CACHE: Przechowujemy listę modów i ukrytych cheatów, żeby nie liczyć tego w kółko
+	private final List<String> cachedModList = new ArrayList<>();
+
 	@Override
 	public void onInitializeClient() {
-		// Rejestracja kanału odbierającego od serwera (S2C) i wysyłającego (C2S)
+		// 1. BUDOWANIE CACHE: Zbieramy mody Fabrica tylko raz przy starcie gry
+		for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
+			cachedModList.add(mod.getMetadata().getId());
+		}
+
+		// 2. GŁĘBOKIE SKANOWANIE: Dodajemy ewentualne ukryte klasy
+		scanForHiddenCheats();
+
+		// 3. Rejestracja kanałów
 		PayloadTypeRegistry.playS2C().register(ChallengePayload.ID, ChallengePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AuthPayload.ID, AuthPayload.CODEC);
 
-		// Nasłuchujemy wiadomości od serwera (Wyzwanie)
+		// 4. Odpowiedź na wyzwanie od serwera
 		ClientPlayNetworking.registerGlobalReceiver(ChallengePayload.ID, (payload, context) -> {
 			String challenge = payload.challenge();
 			String responseHash = hashString(challenge + SECRET);
 
-			List<String> modIds = new ArrayList<>();
-			for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
-				modIds.add(mod.getMetadata().getId());
-			}
-
-			// Odsyłamy poprawnie zaszyfrowany pakiet do serwera
+			// Odsyłamy poprawnie zaszyfrowany pakiet wraz z gotowym cache modów!
 			context.client().execute(() -> {
-				ClientPlayNetworking.send(new AuthPayload(responseHash, modIds));
+				ClientPlayNetworking.send(new AuthPayload(responseHash, cachedModList));
 			});
 		});
+	}
+
+	private void scanForHiddenCheats() {
+		// Anty-Skid: Odwrócone nazwy klas, żeby utrudnić wyszukiwanie w plikach .jar
+		String[] reversedSuspects = {
+				"tneilCroeteM.tneilcroetem.tnempolevedroetem",
+				"tneilCtsruW.tneilctsruw.ten",
+				"kcaHhcaelB.hcaelb",
+				"siotsirA.tneilc.siotsira.em",
+				"kcaHrehsuR.tneilc.kcahrehsur.gro"
+		};
+
+		for (String reversed : reversedSuspects) {
+			// Odwracamy string z powrotem do normalnej postaci
+			String className = new StringBuilder(reversed).reverse().toString();
+			try {
+				// Szukamy w pamięci
+				Class.forName(className, false, PlLobbyAC.class.getClassLoader());
+				cachedModList.add("ukryta_klasa_" + className.toLowerCase());
+			} catch (ClassNotFoundException ignored) {}
+		}
 	}
 
 	private static String hashString(String input) {
@@ -64,11 +91,12 @@ public class PlLobbyAC implements ClientModInitializer {
 		}
 	}
 
-	// Rekord odbierający wyzwanie od serwera
+	// --- REKORDY PAKIETÓW (BEZ ZMIAN) ---
+
 	public record ChallengePayload(String challenge) implements CustomPayload {
 		public static final Id<ChallengePayload> ID = new Id<>(CHALLENGE_CHANNEL);
 		public static final PacketCodec<RegistryByteBuf, ChallengePayload> CODEC = CustomPayload.codecOf(
-				(value, buf) -> {}, // Klient nie wysyła tego pakietu
+				(value, buf) -> {},
 				buf -> {
 					try {
 						byte[] bytes = new byte[buf.readableBytes()];
@@ -83,7 +111,6 @@ public class PlLobbyAC implements ClientModInitializer {
 		@Override public Id<? extends CustomPayload> getId() { return ID; }
 	}
 
-	// Rekord wysyłający autoryzację do serwera (w pełni kompatybilny z Bukkitem)
 	public record AuthPayload(String keyHash, List<String> mods) implements CustomPayload {
 		public static final Id<AuthPayload> ID = new Id<>(AUTH_CHANNEL);
 		public static final PacketCodec<RegistryByteBuf, AuthPayload> CODEC = CustomPayload.codecOf(
@@ -99,7 +126,7 @@ public class PlLobbyAC implements ClientModInitializer {
 						buf.writeBytes(baos.toByteArray());
 					} catch (Exception ignored) {}
 				},
-				buf -> null // Klient nie odczytuje swoich własnych pakietów
+				buf -> null
 		);
 		@Override public Id<? extends CustomPayload> getId() { return ID; }
 	}
