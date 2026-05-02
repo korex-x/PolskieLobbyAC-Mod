@@ -9,6 +9,9 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
+import club.minnced.discord.rpc.DiscordEventHandlers;
+import club.minnced.discord.rpc.DiscordRPC;
+import club.minnced.discord.rpc.DiscordRichPresence;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -27,6 +30,9 @@ public class PlLobbyAC implements ClientModInitializer {
 
 	// CACHE: Przechowujemy listę modów i ukrytych cheatów, żeby nie liczyć tego w kółko
 	private final List<String> cachedModList = new ArrayList<>();
+
+	// [ZABEZPIECZENIE]: Zapobiega tworzeniu nieskończonej ilości wątków Discorda
+	private boolean isRpcStarted = false;
 
 	@Override
 	public void onInitializeClient() {
@@ -50,25 +56,71 @@ public class PlLobbyAC implements ClientModInitializer {
 			// Odsyłamy poprawnie zaszyfrowany pakiet wraz z gotowym cache modów!
 			context.client().execute(() -> {
 				ClientPlayNetworking.send(new AuthPayload(responseHash, cachedModList));
+
+				// [POPRAWKA]: Odpalamy status na Discordzie tylko RAZ
+				if (!isRpcStarted) {
+					startDiscordRPC();
+					isRpcStarted = true;
+				}
 			});
 		});
 	}
 
+	private void startDiscordRPC() {
+		new Thread(() -> {
+			DiscordRPC lib = DiscordRPC.INSTANCE;
+			// Pamiętaj o podmienieniu tego ID na swoje!
+			String applicationId = "1500231979311038464";
+			String steamId = "";
+
+			DiscordEventHandlers handlers = new DiscordEventHandlers();
+			handlers.ready = (user) -> System.out.println("Discord RPC gotowe dla: " + user.username);
+
+			lib.Discord_Initialize(applicationId, handlers, true, steamId);
+
+			DiscordRichPresence presence = new DiscordRichPresence();
+			presence.details = "Competitive";
+			// Automatyczne pobranie aktualnego czasu, aby liczyło minuty w grze
+			presence.startTimestamp = System.currentTimeMillis() / 1000L;
+			presence.largeImageText = "Numbani";
+			presence.smallImageText = "Rogue - Level 100";
+			presence.partyId = "ae488379-351d-4a4f-ad32-2b9b01c91657";
+			presence.partySize = 1;
+			presence.partyMax = 5;
+			presence.joinSecret = "MTI4NzM0OjFpMmhuZToxMjMxMjM= ";
+
+			lib.Discord_UpdatePresence(presence);
+
+			while (!Thread.currentThread().isInterrupted()) {
+				lib.Discord_RunCallbacks();
+				try {
+					Thread.sleep(2000);
+				} catch (InterruptedException e) {
+					lib.Discord_Shutdown();
+				}
+			}
+		}, "Discord-RPC-Watek").start();
+	}
+
 	private void scanForHiddenCheats() {
-		// Anty-Skid: Odwrócone nazwy klas, żeby utrudnić wyszukiwanie w plikach .jar
 		String[] reversedSuspects = {
-				"tneilCroeteM.tneilcroetem.tnempolevedroetem",
-				"tneilCtsruW.tneilctsruw.ten",
-				"kcaHhcaelB.hcaelb",
-				"siotsirA.tneilc.siotsira.em",
-				"kcaHrehsuR.tneilc.kcahrehsur.gro"
+				"tneilCroeteM.tneilcroetem.tnempolevedroetem", // Meteor
+				"tneilCtsruW.tneilctsruw.ten",                 // Wurst
+				"kcaHhcaelB.hcaelb",                           // BleachHack
+				"siotsirA.tneilc.siotsira.em",                 // Aristois
+				"kcaHrehsuR.tneilc.kcahrehsur.gro",             // RusherHack
+				"maceerf.maceerf",                             // Freecam
+				"taen.taen",                                   // Neat (Serca)
+				"htlaehorot.htlaehorot",                       // ToroHealth (Serca)
+				"srotacidniegamad.srotacidniegamad",           // Damage Indicators
+				"xobtih.xobtih",                               // Hitbox
+				"tsissamia.tsissamia",                         // Aim Assist
+				"metototua.metototua"                          // AutoTotem / AutoShield
 		};
 
 		for (String reversed : reversedSuspects) {
-			// Odwracamy string z powrotem do normalnej postaci
 			String className = new StringBuilder(reversed).reverse().toString();
 			try {
-				// Szukamy w pamięci
 				Class.forName(className, false, PlLobbyAC.class.getClassLoader());
 				cachedModList.add("ukryta_klasa_" + className.toLowerCase());
 			} catch (ClassNotFoundException ignored) {}
@@ -90,8 +142,6 @@ public class PlLobbyAC implements ClientModInitializer {
 			return "";
 		}
 	}
-
-	// --- REKORDY PAKIETÓW (BEZ ZMIAN) ---
 
 	public record ChallengePayload(String challenge) implements CustomPayload {
 		public static final Id<ChallengePayload> ID = new Id<>(CHALLENGE_CHANNEL);

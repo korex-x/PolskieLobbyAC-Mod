@@ -8,6 +8,8 @@ group = project.maven_group
 
 repositories {
 	// Repozytoria bibliotek
+	mavenCentral()
+	maven { url 'https://jitpack.io' }
 }
 
 dependencies {
@@ -15,6 +17,9 @@ dependencies {
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// Lekka biblioteka do Discord RPC
+	implementation 'com.github.MinnDevelopment:java-discord-rpc:v2.0.2'
+	include 'com.github.MinnDevelopment:java-discord-rpc:v2.0.2'
 }
 
 processResources {
